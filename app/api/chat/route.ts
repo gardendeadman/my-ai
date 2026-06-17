@@ -1,7 +1,7 @@
 import { getCharacter } from "@/characters";
 import { NextResponse } from "next/server";
 
-const DIFY_BASE_URL = process.env.DIFY_BASE_URL ?? "https://api.dify.ai";
+const DIFY_BASE_URL = (process.env.DIFY_BASE_URL ?? "https://api.dify.ai/v1").replace(/\/v1\/?$/, "");
 
 /**
  * Dify Chat-Messages API 호출 함수 (blocking 모드)
