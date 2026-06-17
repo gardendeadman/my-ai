@@ -282,9 +282,9 @@ export default function Home() {
         <div className="border-t border-white/10 px-4 py-3">
           <div className="flex items-center gap-3 mb-3">
             <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center text-sm font-semibold text-white flex-shrink-0">
-              {user.email?.[0].toUpperCase()}
+              {user?.email?.[0].toUpperCase()}
             </div>
-            <p className="text-xs text-gray-400 truncate flex-1">{user.email}</p>
+            <p className="text-xs text-gray-400 truncate flex-1">{user?.email}</p>
           </div>
           <button
             onClick={signOut}
