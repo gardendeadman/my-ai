@@ -25,7 +25,6 @@ export default function Home() {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
-  const [difyConversationId, setDifyConversationId] = useState<string | null>(null);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -76,7 +75,6 @@ export default function Home() {
     setSelected(char);
     setMessages([]);
     setConversationId(null);
-    setDifyConversationId(null);
     setSidebarOpen(false);
 
     // 로그인한 경우에만 대화 기록 저장
@@ -109,9 +107,6 @@ export default function Home() {
       }))
     );
     setConversationId(conv.id);
-    // 기존 대화를 불러올 때는 Dify conversation_id를 모르므로 초기화
-    // Dify는 conversation_id가 없으면 새 대화로 시작함
-    setDifyConversationId(null);
     setSidebarOpen(false);
   };
 
@@ -137,40 +132,47 @@ export default function Home() {
 
     await saveMessage("user", trimmed);
 
-    // 응답을 기다리는 동안 로딩 말풍선 표시
     setMessages([...newMessages, { role: "assistant", content: "" }]);
 
     try {
-      const res = await fetch("/api/chat", {
+      const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          query: trimmed,
-          characterId: selected.id,
-          userId: user?.id ?? "anonymous",
-          // Dify가 대화 메모리를 이어가도록 이전 응답의 conversation_id 전달
-          difyConversationId: difyConversationId ?? "",
-        }),
+        body: JSON.stringify({ messages: newMessages, characterId: selected.id }),
       });
 
-      if (!res.ok) throw new Error(`응답 오류: ${res.status}`);
+      if (!response.body) throw new Error("No response body");
 
-      const data = await res.json();
-      const answer: string = data.answer ?? "응답을 받지 못했어요.";
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let accumulated = "";
 
-      // Dify가 발급한 conversation_id 저장 → 다음 요청 때 재사용
-      if (data.difyConversationId) {
-        setDifyConversationId(data.difyConversationId);
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        for (const line of decoder.decode(value).split("\n")) {
+          if (!line.startsWith("data: ")) continue;
+          const data = line.slice(6);
+          if (data === "[DONE]") break;
+          try {
+            const parsed = JSON.parse(data);
+            if (parsed.text) {
+              accumulated += parsed.text;
+              setMessages((prev) => {
+                const updated = [...prev];
+                updated[updated.length - 1] = { role: "assistant", content: accumulated };
+                return updated;
+              });
+            }
+          } catch { /* skip */ }
+        }
       }
 
-      setMessages((prev) => {
-        const updated = [...prev];
-        updated[updated.length - 1] = { role: "assistant", content: answer };
-        return updated;
-      });
-
-      await saveMessage("assistant", answer);
-      loadConversations();
+      if (accumulated) {
+        await saveMessage("assistant", accumulated);
+        loadConversations();
+      }
     } catch (err) {
       console.error(err);
       setMessages((prev) => {
