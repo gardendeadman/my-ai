@@ -2,7 +2,7 @@ import { getCharacter } from "@/characters";
 import { NextResponse } from "next/server";
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY!;
-const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+const GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent";
 
 export async function POST(request: Request) {
   const { messages, characterId } = await request.json();
@@ -19,7 +19,10 @@ export async function POST(request: Request) {
 
   const geminiRes = await fetch(GEMINI_URL, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      "x-goog-api-key": GEMINI_API_KEY,
+    },
     body: JSON.stringify({
       system_instruction: { parts: [{ text: character.personality }] },
       contents,
