@@ -1,16 +1,15 @@
 import { getCharacter } from "@/characters";
+import { NextResponse } from "next/server";
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY!;
-const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:streamGenerateContent?alt=sse&key=${GEMINI_API_KEY}`;
+const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`;
 
 export async function POST(request: Request) {
   const { messages, characterId } = await request.json();
 
   const character = getCharacter(characterId);
   if (!character) {
-    return new Response(JSON.stringify({ error: "캐릭터를 찾을 수 없어요." }), {
-      status: 404,
-    });
+    return NextResponse.json({ error: "캐릭터를 찾을 수 없어요." }, { status: 404 });
   }
 
   const contents = messages.map((m: { role: string; content: string }) => ({
@@ -28,38 +27,22 @@ export async function POST(request: Request) {
     }),
   });
 
-  if (!geminiRes.ok || !geminiRes.body) {
-    const err = await geminiRes.text();
-    console.error("[Gemini]", err);
-    return new Response(JSON.stringify({ error: "AI 응답 실패" }), { status: 502 });
+  const json = await geminiRes.json();
+
+  if (!geminiRes.ok) {
+    console.error("[Gemini Error]", JSON.stringify(json));
+    return NextResponse.json({ error: JSON.stringify(json) }, { status: 502 });
   }
 
+  const text = json.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+
+  // 스트리밍 형식 유지 (page.tsx SSE 파서와 호환)
   const encoder = new TextEncoder();
   const readable = new ReadableStream({
-    async start(controller) {
-      const reader = geminiRes.body!.getReader();
-      const decoder = new TextDecoder();
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        for (const line of decoder.decode(value).split("\n")) {
-          if (!line.startsWith("data: ")) continue;
-          const data = line.slice(6).trim();
-          if (!data || data === "[DONE]") continue;
-          try {
-            const json = JSON.parse(data);
-            const text = json.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
-            if (text) {
-              controller.enqueue(
-                encoder.encode(`data: ${JSON.stringify({ text })}\n\n`)
-              );
-            }
-          } catch { /* skip */ }
-        }
+    start(controller) {
+      if (text) {
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text })}\n\n`));
       }
-
       controller.enqueue(encoder.encode("data: [DONE]\n\n"));
       controller.close();
     },
