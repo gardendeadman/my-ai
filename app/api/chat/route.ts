@@ -4,6 +4,25 @@ import { NextResponse } from "next/server";
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY!;
 const GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent";
 
+async function callGemini(body: object, retries = 2): Promise<Response> {
+  const res = await fetch(GEMINI_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-goog-api-key": GEMINI_API_KEY,
+    },
+    body: JSON.stringify(body),
+  });
+
+  // 503(과부하) or 429(한도초과)면 1초 후 재시도
+  if ((res.status === 503 || res.status === 429) && retries > 0) {
+    await new Promise((r) => setTimeout(r, 1000));
+    return callGemini(body, retries - 1);
+  }
+
+  return res;
+}
+
 export async function POST(request: Request) {
   const { messages, characterId } = await request.json();
 
@@ -17,17 +36,10 @@ export async function POST(request: Request) {
     parts: [{ text: m.content }],
   }));
 
-  const geminiRes = await fetch(GEMINI_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-goog-api-key": GEMINI_API_KEY,
-    },
-    body: JSON.stringify({
-      system_instruction: { parts: [{ text: character.personality }] },
-      contents,
-      generationConfig: { maxOutputTokens: 1024 },
-    }),
+  const geminiRes = await callGemini({
+    system_instruction: { parts: [{ text: character.personality }] },
+    contents,
+    generationConfig: { maxOutputTokens: 1024 },
   });
 
   const json = await geminiRes.json();
@@ -39,7 +51,6 @@ export async function POST(request: Request) {
 
   const text = json.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
 
-  // 스트리밍 형식 유지 (page.tsx SSE 파서와 호환)
   const encoder = new TextEncoder();
   const readable = new ReadableStream({
     start(controller) {
