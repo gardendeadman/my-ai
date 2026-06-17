@@ -122,7 +122,7 @@ export default function Home() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = input.trim();
-    if (!trimmed || isLoading || !selected || !conversationId) return;
+    if (!trimmed || isLoading || !selected) return;
 
     const userMessage: Message = { role: "user", content: trimmed };
     const newMessages = [...messages, userMessage];
