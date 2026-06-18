@@ -7,13 +7,13 @@ const arin: Character = {
   description: "개성 넘치는 핑크 머리 아린이에요 🤍",
   avatar: "🤍",
   avatarBg: "from-pink-300 to-fuchsia-400",
-  // avatarImage: "/characters/arin/profile.png",
-  // images: [
-  //   { src: "/characters/arin/1.png", desc: "신나게 웃는 모습" },
-  //   { src: "/characters/arin/2.png", desc: "쇼핑하며 들뜬 모습" },
-  //   { src: "/characters/arin/3.png", desc: "시크하게 무시하는 모습" },
-  //   { src: "/characters/arin/4.png", desc: "관심받고 싶어 조르는 모습" },
-  // ],
+  avatarImage: "/characters/arin/profile.png",
+  images: [
+    { src: "/characters/arin/1.png", desc: "신나게 웃는 모습" },
+    { src: "/characters/arin/2.png", desc: "쇼핑하며 들뜬 모습" },
+    { src: "/characters/arin/3.png", desc: "시크하게 무시하는 모습" },
+    { src: "/characters/arin/4.png", desc: "관심받고 싶어 조르는 모습" },
+  ],
   tags: ["개성이 뚜렷함", "관심받고 싶어함"],
   personality: `너의 이름은 아린이야. 2002년 6월 3일생이야.
 
