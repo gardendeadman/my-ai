@@ -4,11 +4,11 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import characters, { getAge, type Character } from "@/characters";
 import { createClient } from "@/lib/supabase/client";
 import type { User } from "@supabase/supabase-js";
+import PaymentModal from "./PaymentModal";
 
 interface Message {
   role: "user" | "assistant";
   content: string;
-  imageUrl?: string; // base64 data URL 또는 외부 URL
 }
 
 interface Conversation {
@@ -28,6 +28,10 @@ export default function Home() {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [credits, setCredits] = useState<number | null>(null);
+  const [checkedIn, setCheckedIn] = useState(false);
+  const [showPayment, setShowPayment] = useState(false);
+  const [noCreditsMsg, setNoCreditsMsg] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -48,9 +52,38 @@ export default function Home() {
     if (res.ok) setConversations(await res.json());
   }, []);
 
+  const loadCredits = useCallback(async () => {
+    const res = await fetch("/api/credits");
+    if (res.ok) {
+      const data = await res.json();
+      setCredits(data.credits);
+    }
+  }, []);
+
+  const loadCheckin = useCallback(async () => {
+    const res = await fetch("/api/checkin");
+    if (res.ok) {
+      const data = await res.json();
+      setCheckedIn(data.checked);
+    }
+  }, []);
+
+  const handleCheckin = async () => {
+    const res = await fetch("/api/checkin", { method: "POST" });
+    const data = await res.json();
+    if (res.ok) {
+      setCredits(data.credits);
+      setCheckedIn(true);
+    }
+  };
+
   useEffect(() => {
-    if (user) loadConversations();
-  }, [user, loadConversations]);
+    if (user) {
+      loadConversations();
+      loadCredits();
+      loadCheckin();
+    }
+  }, [user, loadConversations, loadCredits, loadCheckin]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -142,6 +175,14 @@ export default function Home() {
         body: JSON.stringify({ messages: newMessages, characterId: selected.id }),
       });
 
+      if (response.status === 402) {
+        setMessages((prev) => prev.slice(0, -1));
+        setNoCreditsMsg(true);
+        setTimeout(() => setNoCreditsMsg(false), 3000);
+        setIsLoading(false);
+        return;
+      }
+
       if (!response.body) throw new Error("No response body");
 
       const reader = response.body.getReader();
@@ -173,6 +214,7 @@ export default function Home() {
       if (accumulated) {
         await saveMessage("assistant", accumulated);
         loadConversations();
+        setCredits((prev) => (prev !== null ? prev - 1 : null));
       }
     } catch (err) {
       console.error(err);
@@ -312,10 +354,28 @@ export default function Home() {
           )}
         </div>
 
-        <div className="border-t border-white/10 px-4 py-3">
+        <div className="border-t border-white/10 px-4 py-3 space-y-2">
           {user ? (
             <>
-              <div className="flex items-center gap-3 mb-3">
+              {/* 크레딧 + 충전 */}
+              <div className="flex items-center justify-between px-1 mb-1">
+                <span className="text-xs text-gray-500">크레딧 <span className="text-white font-semibold">{credits ?? "…"}</span>개</span>
+                <button
+                  onClick={() => { setSidebarOpen(false); setShowPayment(true); }}
+                  className="text-xs text-rose-400 hover:text-rose-300 transition-colors"
+                >
+                  충전하기
+                </button>
+              </div>
+              {/* 출석체크 */}
+              <button
+                onClick={handleCheckin}
+                disabled={checkedIn}
+                className="w-full text-xs py-2 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed bg-white/6 hover:bg-white/10 text-gray-300"
+              >
+                {checkedIn ? "✅ 오늘 출석 완료 (+20)" : "🎁 출석체크 (+20 크레딧)"}
+              </button>
+              <div className="flex items-center gap-3 pt-1">
                 <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center text-sm font-semibold text-white flex-shrink-0">
                   {user.email?.[0].toUpperCase()}
                 </div>
@@ -345,6 +405,13 @@ export default function Home() {
     return (
       <div className="flex flex-col h-full bg-[#0f0f10] text-gray-100">
         <Sidebar />
+        {showPayment && (
+          <PaymentModal
+            onClose={() => setShowPayment(false)}
+            onSuccess={(newCredits) => { setCredits(newCredits); setShowPayment(false); }}
+            userId={user!.id}
+          />
+        )}
         <header className="flex items-center px-4 py-3 border-b border-white/10">
           <button
             onClick={() => setSidebarOpen(true)}
@@ -404,6 +471,24 @@ export default function Home() {
   return (
     <div className="flex flex-col h-full bg-[#0f0f10] text-gray-100">
       <Sidebar />
+      {showPayment && (
+        <PaymentModal
+          onClose={() => setShowPayment(false)}
+          onSuccess={(newCredits) => { setCredits(newCredits); setShowPayment(false); }}
+          userId={user!.id}
+        />
+      )}
+      {noCreditsMsg && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-[#1e1e20] border border-rose-500/30 text-sm text-white px-5 py-3 rounded-2xl shadow-lg flex items-center gap-3">
+          <span>크레딧이 부족해요</span>
+          <button
+            onClick={() => { setNoCreditsMsg(false); setShowPayment(true); }}
+            className="text-rose-400 hover:text-rose-300 text-xs font-medium"
+          >
+            충전하기
+          </button>
+        </div>
+      )}
 
       <header className="border-b border-white/10 px-4 py-3 flex items-center gap-3">
         <button
