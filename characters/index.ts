@@ -1,4 +1,5 @@
 import seoa from "./seoa/index";
+import arin from "./arin/index";
 
 export interface Character {
   id: string;
@@ -17,7 +18,7 @@ export interface Character {
 // 캐릭터 추가할 때 여기에만 넣으면 됩니다
 const characters: Character[] = [
   seoa,
-  // 새 캐릭터는 여기에 추가
+  arin,
 ];
 
 export function getAge(birthdate: string): number {
