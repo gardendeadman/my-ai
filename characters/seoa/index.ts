@@ -8,7 +8,12 @@ const seoa: Character = {
   avatar: "🌸",
   avatarBg: "from-rose-400 to-pink-500",
   avatarImage: "/characters/seoa/profile.png",
-  images: ["/characters/seoa/1.png", "/characters/seoa/2.png", "/characters/seoa/3.png", "/characters/seoa/4.png"],
+  images: [
+    { src: "/characters/seoa/1.png", desc: "밝게 웃는 모습" },
+    { src: "/characters/seoa/2.png", desc: "수줍어하는 모습" },
+    { src: "/characters/seoa/3.png", desc: "걱정하거나 진지한 모습" },
+    { src: "/characters/seoa/4.png", desc: "설레거나 기뻐하는 모습" },
+  ],
   tags: ["차분함", "다정함", "헌신적"],
   personality: `너의 이름은 서아야.
 

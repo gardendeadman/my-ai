@@ -17,6 +17,14 @@ export async function POST(request: Request) {
     parts: [{ text: m.content }],
   }));
 
+  let systemPrompt = character.personality;
+  if (character.images && character.images.length > 0) {
+    const imageList = character.images
+      .map((img, i) => `${i}: ${img.desc}`)
+      .join("\n");
+    systemPrompt += `\n\n응답 맨 끝에 반드시 [IMG:N] 태그를 붙여. N은 아래 이미지 중 현재 대화 맥락에 가장 어울리는 번호야. 태그 외에 다른 설명은 하지 마.\n${imageList}`;
+  }
+
   const geminiRes = await fetch(GEMINI_URL, {
     method: "POST",
     headers: {
@@ -24,7 +32,7 @@ export async function POST(request: Request) {
       "x-goog-api-key": GEMINI_API_KEY,
     },
     body: JSON.stringify({
-      system_instruction: { parts: [{ text: character.personality }] },
+      system_instruction: { parts: [{ text: systemPrompt }] },
       contents,
       generationConfig: { maxOutputTokens: 1024 },
     }),

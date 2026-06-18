@@ -28,10 +28,8 @@ export default function Home() {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [pendingImage, setPendingImage] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const supabase = createClient();
@@ -122,29 +120,15 @@ export default function Home() {
     });
   };
 
-  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => setPendingImage(reader.result as string);
-    reader.readAsDataURL(file);
-    e.target.value = "";
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = input.trim();
-    if ((!trimmed && !pendingImage) || isLoading || !selected) return;
+    if (!trimmed || isLoading || !selected) return;
 
-    const userMessage: Message = {
-      role: "user",
-      content: trimmed || (pendingImage ? "📷" : ""),
-      imageUrl: pendingImage ?? undefined,
-    };
+    const userMessage: Message = { role: "user", content: trimmed };
     const newMessages = [...messages, userMessage];
     setMessages(newMessages);
     setInput("");
-    setPendingImage(null);
     setIsLoading(true);
 
     await saveMessage("user", trimmed);
@@ -496,27 +480,37 @@ export default function Home() {
                     </div>
                   )
                 )}
-                <div
-                  className={`max-w-[78%] rounded-2xl overflow-hidden text-sm leading-relaxed ${
-                    msg.role === "user"
-                      ? "bg-rose-500/80 text-white rounded-tr-sm"
-                      : "bg-white/8 text-gray-100 rounded-tl-sm border border-white/10"
-                  }`}
-                >
-                  {msg.imageUrl && (
-                    <img src={msg.imageUrl} className="w-full max-w-[260px] object-cover" />
-                  )}
-                  {(msg.content && msg.content !== "📷") && (
-                    <p className="px-4 py-2.5 whitespace-pre-wrap">{msg.content}</p>
-                  )}
-                  {msg.role === "assistant" && isLoading && i === messages.length - 1 && msg.content === "" && (
-                    <span className="inline-flex gap-1 px-4 py-3">
-                      <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce [animation-delay:0ms]" />
-                      <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce [animation-delay:150ms]" />
-                      <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce [animation-delay:300ms]" />
-                    </span>
-                  )}
-                </div>
+                {(() => {
+                  const isStreaming = isLoading && i === messages.length - 1 && msg.role === "assistant";
+                  const imgMatch = !isStreaming ? msg.content.match(/\[IMG:(\d+)\]/) : null;
+                  const imgIndex = imgMatch ? parseInt(imgMatch[1]) : -1;
+                  const imgSrc = imgIndex >= 0 ? selected.images?.[imgIndex]?.src : undefined;
+                  const cleanContent = msg.content.replace(/\[IMG:\d+\]/g, "").trimEnd();
+                  return (
+                    <div className="flex flex-col gap-2 max-w-[78%]">
+                      <div
+                        className={`rounded-2xl overflow-hidden text-sm leading-relaxed ${
+                          msg.role === "user"
+                            ? "bg-rose-500/80 text-white rounded-tr-sm"
+                            : "bg-white/8 text-gray-100 rounded-tl-sm border border-white/10"
+                        }`}
+                      >
+                        {cleanContent ? (
+                          <p className="px-4 py-2.5 whitespace-pre-wrap">{cleanContent}</p>
+                        ) : isStreaming ? (
+                          <span className="inline-flex gap-1 px-4 py-3">
+                            <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce [animation-delay:0ms]" />
+                            <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce [animation-delay:150ms]" />
+                            <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce [animation-delay:300ms]" />
+                          </span>
+                        ) : null}
+                      </div>
+                      {imgSrc && (
+                        <img src={imgSrc} className="rounded-2xl rounded-tl-sm w-48 object-cover border border-white/10" />
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
             ))}
             <div ref={bottomRef} />
@@ -526,54 +520,10 @@ export default function Home() {
 
       <footer className="border-t border-white/10 px-4 py-3">
         <div className="max-w-xl mx-auto">
-          {pendingImage && (
-            <div className="mb-2 relative w-fit">
-              <img src={pendingImage} className="h-20 rounded-xl object-cover border border-white/10" />
-              <button
-                type="button"
-                onClick={() => setPendingImage(null)}
-                className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-gray-700 hover:bg-gray-600 flex items-center justify-center text-white"
-              >
-                <svg viewBox="0 0 24 24" fill="currentColor" className="w-3 h-3">
-                  <path fillRule="evenodd" d="M5.47 5.47a.75.75 0 011.06 0L12 10.94l5.47-5.47a.75.75 0 111.06 1.06L13.06 12l5.47 5.47a.75.75 0 11-1.06 1.06L12 13.06l-5.47 5.47a.75.75 0 01-1.06-1.06L10.94 12 5.47 6.53a.75.75 0 010-1.06z" clipRule="evenodd" />
-                </svg>
-              </button>
-            </div>
-          )}
           <form
             onSubmit={handleSubmit}
             className="flex items-end gap-2 bg-white/6 border border-white/12 rounded-2xl px-4 py-3 focus-within:border-rose-400/40 transition-colors"
           >
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              onChange={handleImageSelect}
-              className="hidden"
-            />
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-500 hover:text-gray-300 hover:bg-white/8 transition-colors flex-shrink-0"
-            >
-              <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
-                <path fillRule="evenodd" d="M18.97 3.659a2.25 2.25 0 00-3.182 0l-10.94 10.94a3.75 3.75 0 105.304 5.303l7.693-7.693a.75.75 0 011.06 1.06l-7.693 7.694a5.25 5.25 0 11-7.424-7.424l10.939-10.94a3.75 3.75 0 115.303 5.304L9.097 18.835l-.008.008-.007.007-.002.002-.003.002A2.25 2.25 0 015.91 15.66l7.81-7.81a.75.75 0 011.061 1.06l-7.81 7.81a.75.75 0 001.054 1.068L18.97 6.84a2.25 2.25 0 000-3.182z" clipRule="evenodd" />
-              </svg>
-            </button>
-            {selected.images && selected.images.length > 0 && (
-              <button
-                type="button"
-                onClick={() => {
-                  const imgs = selected.images!;
-                  setPendingImage(imgs[Math.floor(Math.random() * imgs.length)]);
-                }}
-                className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-500 hover:text-gray-300 hover:bg-white/8 transition-colors flex-shrink-0"
-              >
-                <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
-                  <path fillRule="evenodd" d="M1.5 6a2.25 2.25 0 012.25-2.25h16.5A2.25 2.25 0 0122.5 6v12a2.25 2.25 0 01-2.25 2.25H3.75A2.25 2.25 0 011.5 18V6zM3 16.06V18c0 .414.336.75.75.75h16.5A.75.75 0 0021 18v-1.94l-2.69-2.689a1.5 1.5 0 00-2.12 0l-.88.879.97.97a.75.75 0 11-1.06 1.06l-5.16-5.159a1.5 1.5 0 00-2.12 0L3 16.061zm10.125-7.81a1.125 1.125 0 112.25 0 1.125 1.125 0 01-2.25 0z" clipRule="evenodd" />
-                </svg>
-              </button>
-            )}
             <textarea
               ref={textareaRef}
               value={input}
@@ -586,7 +536,7 @@ export default function Home() {
             />
             <button
               type="submit"
-              disabled={(!input.trim() && !pendingImage) || isLoading}
+              disabled={!input.trim() || isLoading}
               className="w-8 h-8 rounded-xl bg-rose-500 hover:bg-rose-400 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center transition-all flex-shrink-0"
             >
               <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">

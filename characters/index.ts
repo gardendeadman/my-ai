@@ -9,7 +9,7 @@ export interface Character {
   avatar: string;        // 이모지 (avatarImage 없을 때 폴백)
   avatarBg: string;      // tailwind gradient 클래스
   avatarImage?: string;  // 프로필 이미지 경로 (예: /characters/seoa.jpg)
-  images?: string[];     // 대화에 삽입할 이미지 목록 (예: ["/characters/seoa/1.jpg", ...])
+  images?: { src: string; desc: string }[]; // 대화 연동 이미지 목록
   tags: string[];
   personality: string;   // 시스템 프롬프트
 }
